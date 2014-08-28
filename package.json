@@ -1,0 +1,21 @@
+{
+  "name": "top-gh-contribs",
+  "version": "0.0.0",
+  "description": "A simple tool for grabbing the top contributors for a repo from github, with some convenient options.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "github",
+    "contributors",
+    "statistics"
+  ],
+  "author": "Matt Enlow",
+  "license": "MIT",
+  "dependencies": {
+    "bluebird": "^2.3.2",
+    "lodash": "^2.4.1",
+    "request": "^2.40.0"
+  }
+}
