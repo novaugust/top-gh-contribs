@@ -27,7 +27,7 @@ var options = {
     count: 20
 };
 
-getTopContribs(options).then(function (contributors) {
+topGithubContributors(options).then(function (contributors) {
     /* Do stuff with contributors*/
 });
 ```
