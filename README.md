@@ -27,8 +27,8 @@ var options = {
     count: 20
 };
 
-getTopContribs().then(function (contributors) {
-    contributors.foreach(/* Do stuff with contributors*/);
+getTopContribs(options).then(function (contributors) {
+    /* Do stuff with contributors*/
 });
 ```
 
@@ -42,6 +42,7 @@ getTopContribs().then(function (contributors) {
     A release tag. If provided, top-gh-contribs will pull down your list of releases from github and look for the date of the matching release.
 * `releaseDate` *not tested*
     The idea is, this will allow you to specify an arbitrary date. I haven't actually tested it yet, and unless someone says something, probably never will!
+
     If neither `releaseTag` nor `releaseDate` is provided, all commits in the last year will be counted.
 * `count`
     The number of contributors to return. If not specified, all contributors will be returned.
