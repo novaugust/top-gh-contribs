@@ -6,7 +6,8 @@ function main(options) {
     var user = options.user;
     var repo = options.repo;
     var releaseDate = options.releaseDate;
-    var releaseTag = options.releaseTag
+    var fromReleaseTag = options.fromReleaseTag || options.releaseTag;
+    var toReleaseTag  = options.toReleaseTag || 'master';
     var count = options.count || Infinity;
 
     if (!(user && repo)) {
@@ -14,11 +15,14 @@ function main(options) {
     }
     //Looks like we're good to go. Start making promises baby!
     var repoApiUrl = ['https://api.github.com/repos/', user, '/', repo].join('');
+    var compareUrl = [repoApiUrl, '/compare/', fromReleaseTag, '...', toReleaseTag].join('');
 
-    var releaseDatePromise = getReleaseDatePromise(releaseDate, releaseTag, repoApiUrl, user);
-    var contributorsPromise = requestPromise(repoApiUrl + '/stats/contributors', user);
+    //var releaseDatePromise = getReleaseDatePromise(releaseDate, toReleaseTag, repoApiUrl, user);
+    //var contributorsPromise = requestPromise(repoApiUrl + '/stats/contributors', user);
+    //return Promise.join(releaseDatePromise, contributorsPromise, count, getTopContributors);
 
-    return Promise.join(releaseDatePromise, contributorsPromise, count, getTopContributors);
+    var commitsPromise = requestPromise(compareUrl, user);
+    return Promise.join(commitsPromise, count, getTopContributorsFromCommits);
 }
 
 function getReleaseDatePromise (releaseDate, releaseTag, repoApiUrl, user) {
@@ -42,6 +46,52 @@ function getReleaseDatePromise (releaseDate, releaseTag, repoApiUrl, user) {
         //Divide by 1k to remove milliseconds to match GH datestamps
         return lastReleaseDate = Date.parse(lastRelease.published_at) / 1000;
     });
+}
+
+
+function getFirstLineOfMessage(message) {
+    var firstNewLine = message.indexOf('\n');
+
+    if (firstNewLine === -1) {
+        return message;
+    }
+
+    if (firstNewLine !== 0) {
+        return message.substr(0,  firstNewLine);
+    }
+
+    return message;
+}
+
+function getTopContributorsFromCommits(commits, count) {
+    var contributors = {};
+    commits = commits.commits;
+
+    _.each(commits, function (commit) {
+        // first line of message
+        var message = getFirstLineOfMessage(commit.commit.message);
+
+        // Exclude merges (this could be an option)
+        if (message.indexOf('Merge') === 0) {
+            return;
+        }
+
+        if (contributors.hasOwnProperty(commit.author.login)) {
+            contributors[commit.author.login].commitCount += 1;
+            contributors[commit.author.login].commits.push(message);
+        } else {
+            contributors[commit.author.login] = {
+                commitCount: 1,
+                name: commit.author.login,
+                realName: commit.commit.author.name,
+                githubUrl: commit.author.html_url,
+                avatarUrl: commit.author.avatar_url,
+                commits: [message]
+            };
+        }
+    });
+
+    return _.sortBy(contributors, 'commitCount').reverse().slice(0, count);
 }
 
 function getTopContributors(releaseDate, contributors, count) {
