@@ -23,7 +23,8 @@ function main(options) {
 
 function getReleaseDatePromise (releaseDate, releaseTag, repoApiUrl, user) {
     if (releaseDate) {
-        return Promise.resolve(releaseDate);
+        //Divide by 1k to remove milliseconds to match GH datestamps
+        return Promise.resolve(releaseDate / 1000);
     }
     // If neither releaseDate or releaseTag were specified
     // sum all commits since the beginning of time.
@@ -87,5 +88,7 @@ function requestPromise (url, agent) {
         });
     });
 }
+main.getReleaseDatePromise = getReleaseDatePromise;
+main.getTopContributors = getTopContributors;
 
 module.exports = main;

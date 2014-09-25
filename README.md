@@ -23,7 +23,7 @@ var topGithubContributors = require('top-gh-contribs');
 var options = {
     user: 'tryghost',
     repo: 'ghost',
-    releaseTag: '0.4.2',
+    releaseDate: Date.now() - 1000*60*60*24*90, //within the last 90 days
     count: 20
 };
 
@@ -34,14 +34,13 @@ topGithubContributors(options).then(function (contributors) {
 
 ### Options
 
-
 * `user` **required**
 * `repo` **required**
     If you're looking for contributors to `tryghost/ghost`, then your `user` is `"tryghost"` and `repo` is `"ghost"`.
-* `releaseTag` *optional*
+* `releaseTag` ::
     A release tag. If provided, top-gh-contribs will pull down your list of releases from github and look for the date of the matching release.
-* `releaseDate` *not tested*
-    The idea is, this will allow you to specify an arbitrary date. I haven't actually tested it yet, and unless someone says something, probably never will!
+* `releaseDate` ::
+    A date, in milliseconds (ala `Date.now()`) from which to count releases. Takes precedence over `releaseTag`
 
     If neither `releaseTag` nor `releaseDate` is provided, all commits in the last year will be counted.
 * `count`
