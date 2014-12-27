@@ -63,7 +63,12 @@ function getTopContributors(releaseDate, contributors, count) {
         };
     });
     //Get the top `count` contributors by commits
-    return _.sortBy(contributors, 'commitCount').reverse().slice(0, count);
+    return _.chain(contributors).filter(function (c) {
+        return c.commitCount > 0;
+    }).sortBy('commitCount')
+      .reverse()
+      .slice(0, count)
+      .value();
 }
 
 function requestPromise (url, agent) {
