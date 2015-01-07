@@ -83,11 +83,26 @@ function requestPromise (url, agent) {
             if (error) {
                 return reject(error);
             }
+
+            function decorateError(error) {
+                if (!error) {
+                    throw new Error('error is required.');
+                }
+
+                error.url = url;
+                error.http_status = response.statusCode;
+                error.ratelimit_limit = response.headers['x-ratelimit-limit'];
+                error.ratelimit_remaining = response.headers['x-ratelimit-remaining'];
+                error.ratelimit_reset = parseInt(response.headers['x-ratelimit-reset'], 10);
+
+                return error;
+            }
+
             if (response.statusCode >= 500) {
-                return reject('Server error on url ' + url);
+                return reject(decorateError(new Error('Server error on url ' + url)));
             }
             if (response.statusCode >= 400) {
-                return reject('Client error on url ' + url);
+                return reject(decorateError(new Error('Client error on url ' + url)));
             }
             return resolve(body);
         });
