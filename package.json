@@ -1,6 +1,6 @@
 {
   "name": "top-gh-contribs",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "A simple tool for grabbing the top contributors for a repo from github, with some convenient options.",
   "main": "index.js",
   "scripts": {
@@ -12,7 +12,10 @@
     "contributors",
     "statistics"
   ],
-  "author": "Matt Enlow",
+  "author": {"name": "Matt Enlow", "url": "http://github.com/novaugust"},
+  "contributors": [
+    {"name": "Jason Williams", "url": "http://github.com/jaswilli"}
+  ],
   "license": "MIT",
   "dependencies": {
     "bluebird": "^2.3.2",
