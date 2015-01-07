@@ -5,6 +5,7 @@ var Promise = require('bluebird');
 function main(options) {
     var user = options.user;
     var repo = options.repo;
+    var oauthKey = options.oauthKey;
     var releaseDate = options.releaseDate;
     var releaseTag = options.releaseTag
     var count = options.count || Infinity;
@@ -15,13 +16,13 @@ function main(options) {
     //Looks like we're good to go. Start making promises baby!
     var repoApiUrl = ['https://api.github.com/repos/', user, '/', repo].join('');
 
-    var releaseDatePromise = getReleaseDatePromise(releaseDate, releaseTag, repoApiUrl, user);
-    var contributorsPromise = requestPromise(repoApiUrl + '/stats/contributors', user);
+    var releaseDatePromise = getReleaseDatePromise(releaseDate, releaseTag, repoApiUrl, user, oauthKey);
+    var contributorsPromise = requestPromise(repoApiUrl + '/stats/contributors', user, oauthKey);
 
     return Promise.join(releaseDatePromise, contributorsPromise, count, getTopContributors);
 }
 
-function getReleaseDatePromise (releaseDate, releaseTag, repoApiUrl, user) {
+function getReleaseDatePromise (releaseDate, releaseTag, repoApiUrl, user, oauthKey) {
     if (releaseDate) {
         //Divide by 1k to remove milliseconds to match GH datestamps
         return Promise.resolve(releaseDate / 1000);
@@ -32,7 +33,7 @@ function getReleaseDatePromise (releaseDate, releaseTag, repoApiUrl, user) {
         return resolve(0); // All time!
     }
 
-    return requestPromise(repoApiUrl + '/releases', user).then(function (releases) {
+    return requestPromise(repoApiUrl + '/releases', user, oauthKey).then(function (releases) {
         var lastRelease = _.find(releases, function findLastRelease(release) {
             return release.tag_name === releaseTag;
         });
@@ -71,14 +72,18 @@ function getTopContributors(releaseDate, contributors, count) {
       .value();
 }
 
-function requestPromise (url, agent) {
+function requestPromise (url, agent, oauthKey) {
+    var headers = {'User-Agent': agent};
+
+    if (oauthKey) {
+        headers.Authorization = 'token ' + oauthKey;
+    }
+
     return new Promise(function (resolve, reject) {
         request({
             url: url,
             json: true,
-            headers: {
-                'User-Agent': agent
-            }
+            headers: headers
         }, function (error, response, body) {
             if (error) {
                 return reject(error);

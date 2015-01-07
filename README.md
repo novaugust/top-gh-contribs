@@ -37,6 +37,8 @@ topGithubContributors(options).then(function (contributors) {
 * `user` **required**
 * `repo` **required**
     If you're looking for contributors to `tryghost/ghost`, then your `user` is `"tryghost"` and `repo` is `"ghost"`.
+* `oauthKey` ::
+    If a GitHub oauth key is provided it will be used when making requests against the API.
 * `releaseTag` ::
     A release tag. If provided, top-gh-contribs will pull down your list of releases from github and look for the date of the matching release.
 * `releaseDate` ::
