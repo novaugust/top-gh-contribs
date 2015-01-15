@@ -109,6 +109,10 @@ function requestPromise (url, agent, oauthKey) {
             if (response.statusCode >= 400) {
                 return reject(decorateError(new Error('Client error on url ' + url)));
             }
+            if (response.statusCode === 202) {
+                return reject(decorateError(new Error('API returned status 202.  Try again in a few moments.')));
+            }
+
             return resolve(body);
         });
     });
