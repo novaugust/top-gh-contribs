@@ -47,3 +47,6 @@ topGithubContributors(options).then(function (contributors) {
     If neither `releaseTag` nor `releaseDate` is provided, all commits in the last year will be counted.
 * `count`
     The number of contributors to return. If not specified, all contributors will be returned.
+* `retry`
+    Default `false`.  If `true`, the request will be retried in the event GitHub returns a status of 202
+    (retry momentarily).

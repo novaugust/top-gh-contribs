@@ -1,28 +1,34 @@
 var _ = require('lodash');
-var request = require("request");
+var request = require('request');
 var Promise = require('bluebird');
 
 function main(options) {
+    options = options || {};
     var user = options.user;
     var repo = options.repo;
     var oauthKey = options.oauthKey;
     var releaseDate = options.releaseDate;
-    var releaseTag = options.releaseTag
+    var releaseTag = options.releaseTag;
     var count = options.count || Infinity;
 
     if (!(user && repo)) {
-        throw new Error("Must specify both github user and repo.");
+        throw new Error('Must specify both github user and repo.');
     }
     //Looks like we're good to go. Start making promises baby!
     var repoApiUrl = ['https://api.github.com/repos/', user, '/', repo].join('');
 
     var releaseDatePromise = getReleaseDatePromise(releaseDate, releaseTag, repoApiUrl, user, oauthKey);
-    var contributorsPromise = requestPromise(repoApiUrl + '/stats/contributors', user, oauthKey);
+    var contributorsPromise = requestPromise({
+        url: repoApiUrl + '/stats/contributors',
+        userAgent: user,
+        oauthKey: oauthKey,
+        retry: options.retry
+    });
 
     return Promise.join(releaseDatePromise, contributorsPromise, count, getTopContributors);
 }
 
-function getReleaseDatePromise (releaseDate, releaseTag, repoApiUrl, user, oauthKey) {
+function getReleaseDatePromise(releaseDate, releaseTag, repoApiUrl, user, oauthKey) {
     if (releaseDate) {
         //Divide by 1k to remove milliseconds to match GH datestamps
         return Promise.resolve(releaseDate / 1000);
@@ -30,19 +36,23 @@ function getReleaseDatePromise (releaseDate, releaseTag, repoApiUrl, user, oauth
     // If neither releaseDate or releaseTag were specified
     // sum all commits since the beginning of time.
     if (!releaseTag) {
-        return resolve(0); // All time!
+        return Promise.resolve(0); // All time!
     }
 
-    return requestPromise(repoApiUrl + '/releases', user, oauthKey).then(function (releases) {
+    return requestPromise({
+        url: repoApiUrl + '/releases',
+        userAgent: user,
+        oauthKey: oauthKey
+    }).then(function (releases) {
         var lastRelease = _.find(releases, function findLastRelease(release) {
             return release.tag_name === releaseTag;
         });
 
         if (!lastRelease) {
-            return Promise.reject(releaseTag + ' not found in github releases\'s tags.');
+            return Promise.reject(new Error(releaseTag + ' not found in github releases\'s tags.'));
         }
         //Divide by 1k to remove milliseconds to match GH datestamps
-        return lastReleaseDate = Date.parse(lastRelease.published_at) / 1000;
+        return Date.parse(lastRelease.published_at) / 1000;
     });
 }
 
@@ -72,16 +82,25 @@ function getTopContributors(releaseDate, contributors, count) {
       .value();
 }
 
-function requestPromise (url, agent, oauthKey) {
-    var headers = {'User-Agent': agent};
+/*
+ * @param {Object} options
+ * @param {string} url - the url to request
+ * @param {string} [userAgent]
+ * @param {string} [oauthKey] - a GitHub oauth key with access to the repository being queried
+ * @param {boolean} [retry] - retry on status code 202
+ * @param {number} [retryCount]
+ */
+function requestPromise(options) {
+    options = options || {};
+    var headers = {'User-Agent': options.userAgent || 'request'};
 
-    if (oauthKey) {
-        headers.Authorization = 'token ' + oauthKey;
+    if (options.oauthKey) {
+        headers.Authorization = 'token ' + options.oauthKey;
     }
 
     return new Promise(function (resolve, reject) {
         request({
-            url: url,
+            url: options.url,
             json: true,
             headers: headers
         }, function (error, response, body) {
@@ -94,7 +113,7 @@ function requestPromise (url, agent, oauthKey) {
                     throw new Error('error is required.');
                 }
 
-                error.url = url;
+                error.url = options.url;
                 error.http_status = response.statusCode;
                 error.ratelimit_limit = response.headers['x-ratelimit-limit'];
                 error.ratelimit_remaining = response.headers['x-ratelimit-remaining'];
@@ -104,19 +123,40 @@ function requestPromise (url, agent, oauthKey) {
             }
 
             if (response.statusCode >= 500) {
-                return reject(decorateError(new Error('Server error on url ' + url)));
+                return reject(decorateError(new Error('Server error on url ' + options.url)));
             }
             if (response.statusCode >= 400) {
-                return reject(decorateError(new Error('Client error on url ' + url)));
+                return reject(decorateError(new Error('Client error on url ' + options.url)));
             }
             if (response.statusCode === 202) {
-                return reject(decorateError(new Error('API returned status 202.  Try again in a few moments.')));
+                if (!options.retry || options.retryCount > 4) {
+                    return reject(decorateError(new Error('API returned status 202. Try again in a few moments.')));
+                }
+
+                var retryCount = parseInt(options.retryCount, 10) || 0;
+
+                var retryPromise = Promise.delay(retryDelay(retryCount)).then(function () {
+                    return requestPromise({
+                        url: options.url,
+                        userAgent: options.userAgent || 'request',
+                        oauthKey: options.oauthKey,
+                        retry: true,
+                        retryCount: retryCount + 1
+                    });
+                });
+
+                return resolve(retryPromise);
             }
 
             return resolve(body);
         });
     });
 }
+
+function retryDelay(count) {
+    return Math.floor((Math.pow(2, count) + Math.random()) * 1000);
+}
+
 main.getReleaseDatePromise = getReleaseDatePromise;
 main.getTopContributors = getTopContributors;
 
