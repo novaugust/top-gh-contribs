@@ -124,7 +124,7 @@ describe('top-gh-contribs', function () {
 
         it('should not return contributors with no commits in the requested date range', function () {
             // five days ago from when the fixture data was obtained
-            var fiveDaysAgo = Date.now('2015-02-05') / 1000 - (60 * 60 * 24 * 5);
+            var fiveDaysAgo = new Date('2015-02-05').getTime() / 1000 - (60 * 60 * 24 * 5);
 
             var result = topContribs.getTopContributors(fiveDaysAgo, fixture, 20);
 
