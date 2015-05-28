@@ -68,14 +68,14 @@ function getTopContributors(releaseDate, contributors, count) {
 
         return {
             commitCount: numCommitsSinceReleaseDate,
-            name: contributor.author.login,
-            githubUrl: contributor.author.html_url,
-            avatarUrl: contributor.author.avatar_url
+            name: contributor.author ? contributor.author.login : '',
+            githubUrl: contributor.author ? contributor.author.html_url : '',
+            avatarUrl: contributor.author ? contributor.author.avatar_url : ''
         };
     });
     //Get the top `count` contributors by commits
     return _.chain(contributors).filter(function (c) {
-        return c.commitCount > 0;
+        return c.commitCount > 0 && c.name !== '';
     }).sortBy('commitCount')
       .reverse()
       .slice(0, count)
