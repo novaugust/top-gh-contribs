@@ -23,7 +23,7 @@ var topGithubContributors = require('top-gh-contribs');
 var options = {
     user: 'tryghost',
     repo: 'ghost',
-    releaseDate: Date.now() - 1000*60*60*24*90, //within the last 90 days
+    sinceDate: '2015-02-01' // All commits since 1st February 2015
     count: 20
 };
 
@@ -39,12 +39,13 @@ topGithubContributors(options).then(function (contributors) {
     If you're looking for contributors to `tryghost/ghost`, then your `user` is `"tryghost"` and `repo` is `"ghost"`.
 * `oauthKey` ::
     If a GitHub oauth key is provided it will be used when making requests against the API.
-* `releaseTag` ::
-    A release tag. If provided, top-gh-contribs will pull down your list of releases from github and look for the date of the matching release.
-* `releaseDate` ::
-    A date, in milliseconds (ala `Date.now()`) from which to count releases. Takes precedence over `releaseTag`
-
-    If neither `releaseTag` nor `releaseDate` is provided, all commits in the last year will be counted.
+* `sinceDate` ::
+    A date, in ISO8601 format e.g 'YYYY-MM-DDTHH:MM:SSZ' or 'YYYY-MM-DD' format e.g. '2015-02-01' = 1st February 2015
+    If `sinceDate` is not provided, all commits will be counted.
+    Note: you can install moment.js and then use:
+    var moment = require('moment');
+    sinceDate: moment().subtract(90, 'days').format('YYYY-MM-DDTHH:MM:SSZ') to get a formatted date including time
+    for past 90 days
 * `count`
     The number of contributors to return. If not specified, all contributors will be returned.
 * `retry`
