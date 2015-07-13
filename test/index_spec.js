@@ -35,17 +35,17 @@ describe('top-gh-contribs', function () {
             var result = topContribs.getTopContributors(fixture);
             expect(result[0].commitCount).to.equal(3);
             expect(result[0].oldestCommit).to.equal('2015-06-22T20:11:35Z');
-            expect(result[0].name).to.equal('Hannah Wolfe');
+            expect(result[0].name).to.equal('ErisDS');
             expect(result[0].avatarUrl).to.equal('https://avatars.githubusercontent.com/u/101513?v=3');
             expect(result[0].githubUrl).to.equal('https://github.com/ErisDS');
         });
 
         it('should return contributors in correct order', function () {
             var result = topContribs.getTopContributors(fixture);
-            expect(result[0].name).to.equal('Hannah Wolfe');
-            expect(result[1].name).to.equal('Fabian Becker');
-            expect(result[2].name).to.equal('Austin Burdine');
-            expect(result[3].name).to.equal('John O\'Nolan');
+            expect(result[0].name).to.equal('ErisDS');
+            expect(result[1].name).to.equal('halfdan');
+            expect(result[2].name).to.equal('acburdine');
+            expect(result[3].name).to.equal('JohnONolan');
         });
     });
 

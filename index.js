@@ -56,12 +56,13 @@ function getTopContributors(commits, count) {
             if (c.author) {
                 commit.author.avatar_url = c.author.avatar_url ? c.author.avatar_url : '';
                 commit.author.html_url = c.author.html_url ? c.author.html_url : '';
+                commit.author_name = c.author.login;
             }
         return commit;
     })
     // Create array with single entry per contributor
     .reduce(function(contributors, commit){
-        var index = _.findIndex(contributors, {name: commit.author.name});
+        var index = _.findIndex(contributors, {name: commit.author_name});
         if (index > -1) {
             contributors[index].commitCount += 1;
             if (commit.author.date < contributors[index].oldestCommit) {
@@ -69,7 +70,7 @@ function getTopContributors(commits, count) {
             }
         } else {
             contributors.push({
-                name: commit.author.name,
+                name: commit.author_name,
                 commitCount: 1,
                 oldestCommit: commit.author.date,
                 avatarUrl: commit.author.avatar_url ? commit.author.avatar_url : '',
