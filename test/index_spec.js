@@ -18,34 +18,119 @@ describe('top-gh-contribs', function () {
         expect(retryDelay(4)).to.be.above(16000).and.below(17000);
     });
 
+    describe('getReleaseDatePromise', function () {
+        it('should return a date in seconds if releaseDate is passed in as milliseconds', function (done) {
+            var ninetyDaysAgo = Date.now() - (1000 * 60 * 60 * 24 * 90);
+
+            topContribs.getReleaseDatePromise(ninetyDaysAgo).then(function (result) {
+                expect(result).to.equal(ninetyDaysAgo / 1000);
+
+                done();
+            }).catch(done);
+        });
+
+        it('should return 0 if not given a releaseDate or releaseTag', function (done) {
+            topContribs.getReleaseDatePromise().then(function (result) {
+                expect(result).to.equal(0);
+
+                done();
+            }).catch(done);
+        });
+
+        it('should return a value based on releaseDate if both releaseDate and releaseTag are passed in', function (done) {
+            var ninetyDaysAgo = Date.now() - (1000 * 60 * 60 * 24 * 90);
+
+            topContribs.getReleaseDatePromise(ninetyDaysAgo, 'v1.0.0').then(function (result) {
+                expect(result).to.equal(ninetyDaysAgo / 1000);
+
+                done();
+            }).catch(done);
+        });
+
+        it('should make an API request to resolve the release tag', function (done) {
+            after(function () {
+                nock.cleanAll();
+            });
+
+            var repo = 'https://api.github.com/tryghost/ghost';
+            var publishedAt = Date.parse('2015-01-12T19:46:50Z') / 1000;
+
+            nock('https://api.github.com')
+                .get('/tryghost/ghost/releases')
+                .replyWithFile(200, __dirname + '/fixtures/releases.json');
+
+            topContribs.getReleaseDatePromise(null, '0.5.8', repo).then(function (result) {
+                expect(result).to.equal(publishedAt);
+
+                done();
+            }).catch(done).finally(function () {
+                nock.cleanAll();
+            });
+        });
+
+        it('should return a rejected promise if the release tag cannot be found', function (done) {
+            after(function () {
+                nock.cleanAll();
+            });
+
+            var repo = 'https://api.github.com/tryghost/ghost';
+
+            nock('https://api.github.com')
+                .get('/tryghost/ghost/releases')
+                .replyWithFile(200, __dirname + '/fixtures/releases.json');
+
+            topContribs.getReleaseDatePromise(null, '1.0.0', repo).then(function () {
+                done(new Error('Expected getReleaseDatePromise to reject but it did not'));
+            }).catch(function (err) {
+                expect(err).to.be.an.instanceof(Error);
+
+                done();
+            });
+        });
+    });
+
     describe('getTopContributors', function () {
-            var fixture = require(__dirname + '/fixtures/commits.json');
+            var fixture = require(__dirname + '/fixtures/contributors.json');
 
-        it('should return all contributors if count is not provided', function () {
-            var result = topContribs.getTopContributors(fixture);
-            expect(result.length).to.equal(4);
+        it('should return all contributors if release date is zero', function () {
+            var result = topContribs.getTopContributors(0, fixture, fixture.length);
+
+            expect(result.length).to.equal(fixture.length);
         });
 
-        it('should return no more than 3 contributors if count provided is 3', function () {
-            var result = topContribs.getTopContributors(fixture, 3);
-            expect(result.length).to.be.below(4);
+        it('should return contributor objects with the correct properties', function () {
+            var result = topContribs.getTopContributors(0, fixture, fixture.length);
+
+            expect(result[3].commitCount).to.equal(197);
+            expect(result[3].name).to.equal('jaswilli');
+            expect(result[3].githubUrl).to.equal('https://github.com/jaswilli');
+            expect(result[3].avatarUrl).to.equal('https://avatars.githubusercontent.com/u/214142?v=3');
         });
 
-        it('should return the correct commit details not including merge commits', function () {
-            var result = topContribs.getTopContributors(fixture);
-            expect(result[0].commitCount).to.equal(3);
-            expect(result[0].oldestCommit).to.equal('2015-06-22T20:11:35Z');
-            expect(result[0].name).to.equal('Hannah Wolfe');
-            expect(result[0].avatarUrl).to.equal('https://avatars.githubusercontent.com/u/101513?v=3');
-            expect(result[0].githubUrl).to.equal('https://github.com/ErisDS');
+        it('should return the list of contributors sorted by number of contributions', function () {
+            var result = topContribs.getTopContributors(0, fixture, fixture.length);
+
+            expect(result[0].commitCount).to.be.above(result[1].commitCount);
+            expect(result[1].commitCount).to.be.above(result[2].commitCount);
+            expect(result[2].commitCount).to.be.above(result[3].commitCount);
+            expect(result[3].commitCount).to.be.above(result[4].commitCount);
         });
 
-        it('should return contributors in correct order', function () {
-            var result = topContribs.getTopContributors(fixture);
-            expect(result[0].name).to.equal('Hannah Wolfe');
-            expect(result[1].name).to.equal('Fabian Becker');
-            expect(result[2].name).to.equal('Austin Burdine');
-            expect(result[3].name).to.equal('John O\'Nolan');
+        it('should not return more contributors than requested', function () {
+            var result = topContribs.getTopContributors(0, fixture, 3);
+
+            expect(result.length).to.equal(3);
+        });
+
+        it('should not return contributors with no commits in the requested date range', function () {
+            // five days ago from when the fixture data was obtained
+            var fiveDaysAgo = new Date('2015-02-05').getTime() / 1000 - (60 * 60 * 24 * 5);
+
+            var result = topContribs.getTopContributors(fiveDaysAgo, fixture, 20);
+
+            expect(result.length).to.equal(2);
+            expect(result[0].name).to.equal('jaswilli');
+            expect(result[1].name).to.equal('PaulAdamDavis');
         });
     });
 
@@ -91,25 +176,8 @@ describe('top-gh-contribs', function () {
 
             requestPromise({url: 'http://example.com/'}).then(function (response) {
                 expect(response).to.exist;
-                expect(response[0].some).to.exist;
-                expect(response[0].some).to.equal('thing');
-
-                done();
-            }).catch(done);
-        });
-
-        it('should return the response body and pagination url if available on a status code of 200', function (done) {
-            nock('http://example.com')
-                .get('/')
-                .reply(200, {some: 'thing'}, {
-                    link: '<https://api.github.com/repositories/8231436/commits?since=2015-05-08>; rel="next"'
-                });
-
-            requestPromise({url: 'http://example.com/'}).then(function (response) {
-                expect(response).to.exist;
-                expect(response[0].some).to.exist;
-                expect(response[0].some).to.equal('thing');
-                expect(response[1]).to.equal('https://api.github.com/repositories/8231436/commits?since=2015-05-08');
+                expect(response.some).to.exist;
+                expect(response.some).to.equal('thing');
 
                 done();
             }).catch(done);
@@ -140,8 +208,8 @@ describe('top-gh-contribs', function () {
 
             requestPromise({url: 'http://example.com/', retry: true}).then(function (response) {
                 expect(response).to.exist;
-                expect(response[0].r).to.exist;
-                expect(response[0].r).to.equal('retry worked');
+                expect(response.r).to.exist;
+                expect(response.r).to.equal('retry worked');
 
                 done();
             }).catch(done);
