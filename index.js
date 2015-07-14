@@ -2,86 +2,84 @@ var _ = require('lodash');
 var request = require('request');
 var Promise = require('bluebird');
 
-var commits = [];
-
 function main(options) {
     options = options || {};
-    var user = options.user,
-        repo = options.repo,
-        oauthKey = options.oauth,
-        sinceDateUrl = options.sinceDate ? '?since=' + options.sinceDate : '',
-        count = options.count || Infinity;
+    var user = options.user;
+    var repo = options.repo;
+    var oauthKey = options.oauthKey;
+    var releaseDate = options.releaseDate;
+    var releaseTag = options.releaseTag;
+    var count = options.count || Infinity;
 
     if (!(user && repo)) {
         throw new Error('Must specify both github user and repo.');
     }
+    //Looks like we're good to go. Start making promises baby!
+    var repoApiUrl = ['https://api.github.com/repos/', user, '/', repo].join('');
 
-    var repoApiUrl = ['https://api.github.com/repos/', user, '/', repo, '/commits'].join(''),
-        pagination = getPagination({
-        url: repoApiUrl + sinceDateUrl + '&page=1&per_page=100',
+    var releaseDatePromise = getReleaseDatePromise(releaseDate, releaseTag, repoApiUrl, user, oauthKey);
+    var contributorsPromise = requestPromise({
+        url: repoApiUrl + '/stats/contributors',
         userAgent: user,
         oauthKey: oauthKey,
         retry: options.retry
     });
 
-    return Promise.join(pagination, count, getTopContributors);
+    return Promise.join(releaseDatePromise, contributorsPromise, count, getTopContributors);
 }
 
-// This will load the first page of results for the /commits query then run queries to fetch paginated results
-function getPagination(options) {
-    options = options || {};
-    var commitsPromise = requestPromise(options);
+function getReleaseDatePromise(releaseDate, releaseTag, repoApiUrl, user, oauthKey) {
+    if (releaseDate) {
+        //Divide by 1k to remove milliseconds to match GH datestamps
+        return Promise.resolve(releaseDate / 1000);
+    }
+    // If neither releaseDate or releaseTag were specified
+    // sum all commits since the beginning of time.
+    if (!releaseTag) {
+        return Promise.resolve(0); // All time!
+    }
 
-    return new Promise(function (resolve) {
-        commitsPromise.then(function (results) {
-            commits.push.apply(commits, results[0]);
-            if (results[1]) {
-                options.url = results[1];
-                return resolve(getPagination(options));
-            } else {
-                return resolve(commits);
-            }
+    return requestPromise({
+        url: repoApiUrl + '/releases',
+        userAgent: user,
+        oauthKey: oauthKey
+    }).then(function (releases) {
+        var lastRelease = _.find(releases, function findLastRelease(release) {
+            return release.tag_name === releaseTag;
         });
+
+        if (!lastRelease) {
+            return Promise.reject(new Error(releaseTag + ' not found in github releases\'s tags.'));
+        }
+        //Divide by 1k to remove milliseconds to match GH datestamps
+        return Date.parse(lastRelease.published_at) / 1000;
     });
 }
 
-function getTopContributors(commits, count) {
-    // Filter out Merge commits
-    commits =  _(commits).filter(function (c) {
-        return c.commit.message.substring(0,18) !== 'Merge pull request';
-    })
-    // Merge author and commit details
-    .map(function(c) {
-        var commit = c.commit;
-            if (c.author) {
-                commit.author.avatar_url = c.author.avatar_url ? c.author.avatar_url : '';
-                commit.author.html_url = c.author.html_url ? c.author.html_url : '';
-            }
-        return commit;
-    })
-    // Create array with single entry per contributor
-    .reduce(function(contributors, commit){
-        var index = _.findIndex(contributors, {name: commit.author.name});
-        if (index > -1) {
-            contributors[index].commitCount += 1;
-            if (commit.author.date < contributors[index].oldestCommit) {
-                contributors[index].oldestCommit = commit.author.date;
-            }
-        } else {
-            contributors.push({
-                name: commit.author.name,
-                commitCount: 1,
-                oldestCommit: commit.author.date,
-                avatarUrl: commit.author.avatar_url ? commit.author.avatar_url : '',
-                githubUrl: commit.author.html_url ? commit.author.html_url : ''
-            });
-        }
-        return contributors;
-    }, []);
-    // Cannot chain reduce...
-    // Returns array of contributors ordered by highest commit count then sub-ordered by oldest commit
-    // Size of the array is determined by the value of count
-    return _.sortByOrder(commits, ['commitCount', 'oldestCommit'], ['desc', 'asc']).slice(0, count);
+function getTopContributors(releaseDate, contributors, count) {
+    contributors =  _.map(contributors, function (contributor) {
+        var numCommitsSinceReleaseDate = _.reduce(contributor.weeks,
+            function (commits, week) {
+                if (week.w >= releaseDate) {
+                    commits += week.c;
+                }
+                return commits;
+            }, 0);
+
+        return {
+            commitCount: numCommitsSinceReleaseDate,
+            name: contributor.author ? contributor.author.login : '',
+            githubUrl: contributor.author ? contributor.author.html_url : '',
+            avatarUrl: contributor.author ? contributor.author.avatar_url : ''
+        };
+    });
+    //Get the top `count` contributors by commits
+    return _.chain(contributors).filter(function (c) {
+        return c.commitCount > 0 && c.name !== '';
+    }).sortBy('commitCount')
+      .reverse()
+      .slice(0, count)
+      .value();
 }
 
 /*
@@ -106,13 +104,6 @@ function requestPromise(options) {
             json: true,
             headers: headers
         }, function (error, response, body) {
-            // Check response headers for pagination links
-            var links = response.headers['link'], nextPageUrl = '';
-
-            if (links && _.includes(links, 'next')) {
-                nextPageUrl = links.substring(1, links.indexOf('>; rel="next'));
-            }
-
             if (error) {
                 return reject(error);
             }
@@ -156,7 +147,8 @@ function requestPromise(options) {
 
                 return resolve(retryPromise);
             }
-            return resolve([body, nextPageUrl]);
+
+            return resolve(body);
         });
     });
 }
@@ -165,6 +157,7 @@ function retryDelay(count) {
     return Math.floor((Math.pow(2, count) + Math.random()) * 1000);
 }
 
+main.getReleaseDatePromise = getReleaseDatePromise;
 main.getTopContributors = getTopContributors;
 
 module.exports = main;
