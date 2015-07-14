@@ -9,8 +9,10 @@ function main(options) {
     var user = options.user,
         repo = options.repo,
         oauthKey = options.oauth,
-        sinceDateUrl = options.sinceDate ? '?since=' + options.sinceDate : '',
+        queryParams = '?page=1&per_page=100',
         count = options.count || Infinity;
+
+    queryParams += options.sinceDate ? '&since=' + options.sinceDate : '';
 
     if (!(user && repo)) {
         throw new Error('Must specify both github user and repo.');
@@ -18,7 +20,7 @@ function main(options) {
 
     var repoApiUrl = ['https://api.github.com/repos/', user, '/', repo, '/commits'].join(''),
         pagination = getPagination({
-        url: repoApiUrl + sinceDateUrl + '&page=1&per_page=100',
+        url: repoApiUrl + queryParams,
         userAgent: user,
         oauthKey: oauthKey,
         retry: options.retry
@@ -108,7 +110,7 @@ function requestPromise(options) {
             headers: headers
         }, function (error, response, body) {
             // Check response headers for pagination links
-            var links = response.headers['link'], nextPageUrl = '';
+            var links = response.headers.link, nextPageUrl = '';
 
             if (links && _.includes(links, 'next')) {
                 nextPageUrl = links.substring(1, links.indexOf('>; rel="next'));
