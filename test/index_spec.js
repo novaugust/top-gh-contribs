@@ -21,7 +21,7 @@ describe('top-gh-contribs', function () {
     describe('getTopContributors', function () {
             var fixture = require(__dirname + '/fixtures/commits.json');
 
-        it('should return all contributors if count is not provided', function () {
+        it('should return all contributors if count is not provided not including authors with missing details', function () {
             var result = topContribs.getTopContributors(fixture);
             expect(result.length).to.equal(4);
         });

@@ -48,18 +48,17 @@ function getPagination(options) {
 }
 
 function getTopContributors(commits, count) {
-    // Filter out Merge commits
+    // Filter out Merge commits and authors whose submitted email address is not linked to a github profile
     commits =  _(commits).filter(function (c) {
-        return c.commit.message.substring(0,18) !== 'Merge pull request';
+        return (c.commit.message.substring(0,18) !== 'Merge pull request') && c.author;
     })
     // Merge author and commit details
     .map(function(c) {
         var commit = c.commit;
-            if (c.author) {
-                commit.author.avatar_url = c.author.avatar_url ? c.author.avatar_url : '';
-                commit.author.html_url = c.author.html_url ? c.author.html_url : '';
-                commit.author_name = c.author.login;
-            }
+        commit.author.avatar_url = c.author.avatar_url ? c.author.avatar_url : '';
+        commit.author.html_url = c.author.html_url ? c.author.html_url : '';
+        commit.author_name = c.author.login;
+
         return commit;
     })
     // Create array with single entry per contributor
