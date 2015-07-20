@@ -8,7 +8,7 @@ function main(options) {
     options = options || {};
     var user = options.user,
         repo = options.repo,
-        oauthKey = options.oauth,
+        oauthKey = options.oauthKey,
         queryParams = '?page=1&per_page=100',
         count = options.count || Infinity;
 
@@ -19,32 +19,29 @@ function main(options) {
     }
 
     var repoApiUrl = ['https://api.github.com/repos/', user, '/', repo, '/commits'].join(''),
-        pagination = getPagination({
-        url: repoApiUrl + queryParams,
-        userAgent: user,
-        oauthKey: oauthKey,
-        retry: options.retry
+        paginationPromise = getPagination({
+            url: repoApiUrl + queryParams,
+            userAgent: user,
+            oauthKey: oauthKey,
+            retry: options.retry
     });
 
-    return Promise.join(pagination, count, getTopContributors);
+    return Promise.join(paginationPromise, count, getTopContributors);
 }
 
 // This will load the first page of results for the /commits query then run queries to fetch paginated results
 function getPagination(options) {
     options = options || {};
-    var commitsPromise = requestPromise(options);
 
-    return new Promise(function (resolve) {
-        commitsPromise.then(function (results) {
+    return requestPromise(options).then(function (results) {
             commits.push.apply(commits, results[0]);
             if (results[1]) {
                 options.url = results[1];
-                return resolve(getPagination(options));
+                return getPagination(options);
             } else {
-                return resolve(commits);
+                return commits;
             }
         });
-    });
 }
 
 function getTopContributors(commits, count) {
