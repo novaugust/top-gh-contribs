@@ -23,7 +23,7 @@ var topGithubContributors = require('top-gh-contribs');
 var options = {
     user: 'tryghost',
     repo: 'ghost',
-    sinceDate: '2015-02-01' // All commits since 1st February 2015
+    sinceDate: '2015-02-01', // All commits since 1st February 2015
     count: 20
 };
 
