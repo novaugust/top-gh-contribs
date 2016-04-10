@@ -80,7 +80,7 @@ function getTopContributors(commits, count) {
     // Cannot chain reduce...
     // Returns array of contributors ordered by highest commit count then sub-ordered by oldest commit
     // Size of the array is determined by the value of count
-    return _.sortByOrder(commits, ['commitCount', 'oldestCommit'], ['desc', 'asc']).slice(0, count);
+    return _.orderBy(commits, ['commitCount', 'oldestCommit'], ['desc', 'asc']).slice(0, count);
 }
 
 /*
