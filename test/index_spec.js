@@ -18,8 +18,58 @@ describe('top-gh-contribs', function () {
         expect(retryDelay(4)).to.be.above(16000).and.below(17000);
     });
 
+    describe('getPagination', function () {
+        var getPagination = topContribs.__get__('getPagination');
+
+        afterEach(function () {
+            nock.cleanAll();
+        });
+
+        it('should follow pagination links', function (done) {
+             nock('https://api.github.com')
+                .get('/repos/x/y/commits')
+                .reply(
+                    200,
+                    {
+                        name: 'jaswilli',
+                        commitCount: 67,
+                        oldestCommit: '2015-02-01T20:45:59Z',
+                        avatarUrl: 'https://avatars.githubusercontent.com/u/21412?v=3',
+                        githubUrl: 'https://github.com/jaswilli'
+                    },
+                    {
+                        link: '<https://api.github.com/repositories/9852918/commits?page=2&per_page=100&since=02-01-2015>; rel="next"'
+                    }
+                )
+                .get('/repositories/9852918/commits?page=2&per_page=100&since=02-01-2015')
+                .reply(
+                    200,
+                    {
+                        name: 'fakeuser',
+                        commitCount: 7,
+                        oldestCommit: '2015-02-02T20:45:59Z',
+                        avatarUrl: 'https://avatars.githubusercontent.com/u/142?v=3',
+                        githubUrl: 'https://github.com/fakeuser'
+                    }
+                );
+
+            var opts = {
+                url: 'https://api.github.com/repos/x/y/commits',
+                userAgent: 'x'
+            };
+
+            getPagination(opts).then(function (results) {
+                expect(results.length).to.equal(2);
+                expect(results[0].name).to.equal('jaswilli');
+                expect(results[1].name).to.equal('fakeuser');
+
+                done();
+            }).catch(done);
+        });
+    });
+
     describe('getTopContributors', function () {
-            var fixture = require(__dirname + '/fixtures/commits.json');
+        var fixture = require(__dirname + '/fixtures/commits.json');
 
         it('should return all contributors if count is not provided not including authors with missing details', function () {
             var result = topContribs.getTopContributors(fixture);
