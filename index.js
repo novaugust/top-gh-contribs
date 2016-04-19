@@ -2,8 +2,6 @@ var _ = require('lodash');
 var request = require('request');
 var Promise = require('bluebird');
 
-var commits = [];
-
 function main(options) {
     options = options || {};
     var user = options.user,
@@ -30,14 +28,24 @@ function main(options) {
 }
 
 // This will load the first page of results for the /commits query then run queries to fetch paginated results
-function getPagination(options) {
-    options = options || {};
+function getPagination(_commits, _options) {
+    var commits;
+    var options;
+
+    if (!_options) {
+        options = _commits;
+        commits = [];
+    } else {
+        commits = _commits;
+        options = _options;
+    }
 
     return requestPromise(options).then(function (results) {
-            commits.push.apply(commits, results[0]);
+            commits = commits.concat(results[0]);
+
             if (results[1]) {
                 options.url = results[1];
-                return getPagination(options);
+                return getPagination(commits, options);
             } else {
                 return commits;
             }
@@ -105,8 +113,13 @@ function requestPromise(options) {
             json: true,
             headers: headers
         }, function (error, response, body) {
+            if (error) {
+                return reject(error);
+            }
+
             // Check response headers for pagination links
-            var links = response.headers.link, nextPageUrl = '';
+            var links = response.headers.link;
+            var nextPageUrl = '';
 
             if (links && _.includes(links, 'next')) {
                 nextPageUrl = links.substring(1, links.indexOf('>; rel="next'));
